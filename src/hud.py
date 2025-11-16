@@ -106,6 +106,9 @@ class Hud:
 
         x, y = self.position
 
+        pickaxe_label = self.pickaxe_name or ""
+        
+
         for ore, amount in self.amounts.items():
             # Retrieve the icon rect from atlas_items["item"][ore]
             if ore in self.atlas_items["item"]:

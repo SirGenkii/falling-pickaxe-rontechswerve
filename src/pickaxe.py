@@ -34,6 +34,7 @@ class Pickaxe:
         self.space = space
         self.damage = damage
         self.is_enlarged = False
+        self.current_name = "wooden_pickaxe"
 
         vertices = rotate_vertices([
                     (0, 0), # A
@@ -101,11 +102,12 @@ class Pickaxe:
         # Add small random rotation on hit
         self.body.angle += random.choice([0.01, -0.01])
 
-    def random_pickaxe(self, texture_atlas, atlas_items): 
+    def random_pickaxe(self, texture_atlas, atlas_items):
         """Randomly change the pickaxe's properties."""
 
         pickaxe_name = random.choice(list(atlas_items["pickaxe"].keys()))
         self.texture = texture_atlas.subsurface(atlas_items["pickaxe"][pickaxe_name])
+        self.current_name = pickaxe_name
         print("Setting pickaxe to:", pickaxe_name)
 
         if self.is_enlarged:
@@ -130,6 +132,7 @@ class Pickaxe:
         """Set the pickaxe's properties based on its name."""
 
         self.texture = texture_atlas.subsurface(atlas_items["pickaxe"][name])
+        self.current_name = name
         print("Setting pickaxe to:", name)
 
         if self.is_enlarged:
@@ -149,6 +152,9 @@ class Pickaxe:
             self.damage = 10
         elif(name =="netherite_pickaxe"):
             self.damage = 12
+
+    def display_name(self):
+        return self.current_name.replace("_", " ").title()
 
     def update(self):
         """Apply gravity, update movement, check collisions, and rotate."""

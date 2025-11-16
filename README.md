@@ -44,6 +44,18 @@ These scripts will automatically:
 - Run the game with automatic restart on crashes
 - Exit cleanly when you close the game window
 
+### Updating to the latest version
+The scripts above will keep dependencies updated, but they **won't download new code for you**. To get the newest features and bug fixes:
+
+1. If you cloned with Git, run:
+   ```
+   git pull
+   ```
+   Then re-run `./scripts/run.ps1` (Windows) or `./scripts/run.sh` (Linux/macOS). The scripts will reinstall any new dependencies automatically.
+2. If you downloaded a ZIP, download the latest ZIP from GitHub again and replace your old folder, then run the script for your platform.
+
+Your `config.json` will remain untouched, but if new settings are added they default to the values in `default.config.json`. Copy over new options as needed.
+
 ### Manual Setup (Advanced Users)
 If you prefer to set up the environment manually:
 

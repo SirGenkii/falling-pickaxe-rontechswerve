@@ -46,6 +46,30 @@ class Hud:
         self.icon_size = (64, 64)  # Size to draw each icon
         self.spacing = 15  # Space between items
 
+        self.pickaxe_name = ""
+        self.pickaxe_font = pygame.font.Font(None, 72)
+
+        self.command_font = pygame.font.Font(None, 56)
+        self.leaderboard_font = pygame.font.Font(None, 48)
+
+        self.command_definitions = [
+            {"key": "tnt", "label": "TNT"},
+            {"key": "megatnt", "label": "MegaTNT"},
+            {"key": "diamond", "label": "Diamond"},
+            {"key": "netherite", "label": "Netherite"},
+            {"key": "gold", "label": "Gold"},
+            {"key": "iron", "label": "Iron"},
+            {"key": "stone", "label": "Stone"},
+            {"key": "wood", "label": "Wood"},
+            {"key": "big", "label": "Big"},
+            {"key": "fast", "label": "Fast"},
+            {"key": "slow", "label": "Slow"},
+        ]
+        self.command_state = {cmd["key"]: {"last_triggered": None} for cmd in self.command_definitions}
+        self.command_highlight_duration = 1500
+
+        self.leaderboard_entries = {}
+
         # Initialize a font (using the default font and size 24)
         self.font = pygame.font.Font(None, 64)
 
@@ -56,10 +80,30 @@ class Hud:
         """
         self.amounts.update(new_amounts)
 
+    def set_pickaxe_name(self, pickaxe_name):
+        self.pickaxe_name = pickaxe_name
+
+    def mark_command_trigger(self, command_key):
+        if command_key in self.command_state:
+            self.command_state[command_key]["last_triggered"] = pygame.time.get_ticks()
+
+    def record_blocks_broken(self, author_id, display_name, count=1):
+        if author_id is None:
+            return
+
+        existing = self.leaderboard_entries.get(author_id, {"display_name": display_name or "Unknown", "blocks": 0})
+        existing["display_name"] = display_name or existing["display_name"]
+        existing["blocks"] += count
+        self.leaderboard_entries[author_id] = existing
+
     def draw(self, screen, pickaxe_y, fast_slow_active, fast_slow):
         """
         Draws the HUD: each ore icon with its amount and other indicators.
         """
+        now = pygame.time.get_ticks()
+        pickaxe_label_bottom = self._draw_command_legend(screen, now)
+        pickaxe_label_bottom = self._draw_pickaxe_label(screen, pickaxe_label_bottom)
+
         x, y = self.position
 
         for ore, amount in self.amounts.items():
@@ -104,6 +148,99 @@ class Hud:
         fast_slow_x = x + self.spacing
         fast_slow_y = y + 2 * self.spacing + fast_slow_surface.get_height()
         screen.blit(fast_slow_surface, (fast_slow_x, fast_slow_y))
+
+        self._draw_leaderboard(screen)
+
+
+    def _draw_pickaxe_label(self, screen, start_y):
+        pickaxe_label = self.pickaxe_name or ""
+        pickaxe_surface = render_text_with_outline(
+            f"Pickaxe: {pickaxe_label}",
+            self.pickaxe_font,
+            (255, 255, 255),
+            (0, 0, 0),
+            outline_width=2,
+        )
+        pickaxe_x = (screen.get_width() - pickaxe_surface.get_width()) // 2
+        screen.blit(pickaxe_surface, (pickaxe_x, start_y))
+        return start_y + pickaxe_surface.get_height() + self.spacing // 2
+
+    def _draw_command_legend(self, screen, now):
+        command_spacing = 18
+        commands_per_row = 6
+
+        command_surfaces = []
+        for cmd in self.command_definitions:
+            last_triggered = self.command_state[cmd["key"]]["last_triggered"]
+            recently_triggered = last_triggered is not None and now - last_triggered <= self.command_highlight_duration
+            if recently_triggered:
+                text_color = (255, 215, 0)
+                outline_color = (255, 140, 0)
+            else:
+                text_color = (255, 255, 255)
+                outline_color = (40, 40, 40)
+
+            surface = render_text_with_outline(
+                cmd["label"],
+                self.command_font,
+                text_color,
+                outline_color,
+                outline_width=3,
+            )
+            command_surfaces.append(surface)
+
+        y = self.spacing // 2
+
+        def draw_row(row_surfaces, y_offset):
+            if not row_surfaces:
+                return y_offset
+
+            row_width = sum(s.get_width() for s in row_surfaces) + command_spacing * (len(row_surfaces) - 1)
+            start_x = (screen.get_width() - row_width) // 2
+            max_height = 0
+            for surface in row_surfaces:
+                screen.blit(surface, (start_x, y_offset))
+                start_x += surface.get_width() + command_spacing
+                max_height = max(max_height, surface.get_height())
+            return y_offset + max_height + self.spacing // 3
+
+        y = draw_row(command_surfaces[:commands_per_row], y)
+        y = draw_row(command_surfaces[commands_per_row:], y)
+        return y + self.spacing // 2
+
+    def _draw_leaderboard(self, screen):
+        if not self.leaderboard_entries:
+            return
+
+        title_surface = render_text_with_outline(
+            "Top TNT Miners",
+            self.leaderboard_font,
+            (255, 255, 255),
+            (0, 0, 0),
+            outline_width=2,
+        )
+
+        base_x = screen.get_width() - title_surface.get_width() - self.spacing
+        y = self.spacing
+        screen.blit(title_surface, (base_x, y))
+        y += title_surface.get_height() + self.spacing // 2
+
+        top_entries = sorted(
+            self.leaderboard_entries.values(), key=lambda e: (-e["blocks"], e["display_name"])
+        )[:5]
+
+        for idx, entry in enumerate(top_entries, start=1):
+            line = f"{idx}. {entry['display_name']}: {entry['blocks']}"
+            line_surface = render_text_with_outline(
+                line,
+                self.leaderboard_font,
+                (240, 240, 240),
+                (0, 0, 0),
+                outline_width=2,
+            )
+            line_x = screen.get_width() - line_surface.get_width() - self.spacing
+            screen.blit(line_surface, (line_x, y))
+            y += line_surface.get_height() + self.spacing // 3
 
             
 

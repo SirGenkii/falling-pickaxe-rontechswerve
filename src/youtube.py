@@ -3,7 +3,6 @@ from config import config
 from datetime import datetime
 from pathlib import Path
 from dateutil import parser
-import os
 import re
 
 # Initialize YouTube API client
@@ -63,10 +62,19 @@ def get_live_streams(channel_id):
 
     return live_streams
 
+
+def get_active_live_stream(channel_id):
+    """Return the first active live stream for the channel if one exists."""
+    live_streams = get_live_streams(channel_id)
+    if not live_streams:
+        return None
+
+    return get_live_stream(live_streams[0]["video_id"])
+
 def get_live_stream(livestream_id):
     """Retrieve a single live stream by its ID"""
     request = youtube.videos().list(
-        part="snippet",
+        part="snippet,liveStreamingDetails",
         id=livestream_id
     )
     response = request.execute()
@@ -82,7 +90,20 @@ def get_live_chat_id(live_stream_id):
         id=live_stream_id
     ).execute()
 
-    return response["items"][0]["liveStreamingDetails"]["activeLiveChatId"]
+    items = response.get("items", [])
+    if not items:
+        return None
+
+    return items[0]["liveStreamingDetails"].get("activeLiveChatId")
+
+
+def get_live_chat_id_for_channel(channel_id):
+    """Find the active live chat ID for the given channel."""
+    live_stream = get_active_live_stream(channel_id)
+    if not live_stream:
+        return None
+
+    return get_live_chat_id(live_stream["id"])
 
 def get_live_chat_messages(live_chat_id):
     response = youtube.liveChatMessages().list(
@@ -118,8 +139,10 @@ def get_new_live_chat_messages(live_chat_id):
         if message_id not in seen_messages:
             seen_messages.add(message_id)  # Mark as seen
 
-            author = item["authorDetails"]["displayName"]
-            message = item["snippet"]["displayMessage"]
+            author = item["authorDetails"].get("displayName")
+            author_channel_id = item["authorDetails"].get("channelId")
+            profile_image_url = item["authorDetails"].get("profileImageUrl")
+            message = item["snippet"].get("displayMessage", "")
             timestamp = parser.parse(item["snippet"]["publishedAt"]).strftime("%Y-%m-%d %H:%M:%S")
 
             # Check for super chat first, then for super sticker
@@ -142,6 +165,8 @@ def get_new_live_chat_messages(live_chat_id):
             messages.append({
                 "timestamp": timestamp,
                 "author": author,
+                "author_channel_id": author_channel_id,
+                "profile_image_url": profile_image_url,
                 "message": message,
                 "sc_details": item["snippet"].get("superChatDetails", None),
                 "ss_details": item["snippet"].get("superStickerDetails", None)

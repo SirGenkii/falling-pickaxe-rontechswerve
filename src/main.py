@@ -2,7 +2,14 @@ import time
 import pygame
 import pymunk
 import pymunk.pygame_util
-from youtube import get_live_stream, get_new_live_chat_messages, get_live_chat_id, get_subscriber_count, validate_live_stream_id
+from youtube import (
+    get_active_live_stream,
+    get_live_stream,
+    get_live_chat_id_for_channel,
+    get_new_live_chat_messages,
+    get_subscriber_count,
+    validate_live_stream_id,
+)
 from config import config
 from atlas import create_texture_atlas
 from pathlib import Path
@@ -27,20 +34,28 @@ live_chat_id = None
 subscribers = None
 
 if config["CHAT_CONTROL"] == True:
-    print("Checking for specific live stream")
-    if config["LIVESTREAM_ID"] is not None and config["LIVESTREAM_ID"] != "":
+    print("Checking for active live stream on configured channel")
+    channel_id = config.get("CHANNEL_ID")
+    if channel_id:
+        live_stream = get_active_live_stream(channel_id)
+
+    if live_stream is None and config.get("LIVESTREAM_ID"):
+        print("No active live stream found via channel search. Checking fallback livestream ID...")
         stream_id = validate_live_stream_id(config["LIVESTREAM_ID"])
-        live_stream = get_live_stream(stream_id)
+        if stream_id:
+            live_stream = get_live_stream(stream_id)
 
     if live_stream is None:
-        print("No specific live stream found. App will run without it.")
+        print("No active live stream found. App will run without it.")
     else:
         print("Live stream found:", live_stream["snippet"]["title"])
 
     # get chat id from live stream
     if live_stream is not None:
-        print("Fetching live chat ID...")
-        live_chat_id = get_live_chat_id(live_stream["id"])
+        live_chat_id = live_stream.get("liveStreamingDetails", {}).get("activeLiveChatId")
+        if live_chat_id is None and channel_id:
+            print("Fetching live chat ID from channel...")
+            live_chat_id = get_live_chat_id_for_channel(channel_id)
 
     if live_chat_id is None:
         print("No live chat ID found. App will run without it.")
@@ -78,60 +93,68 @@ async def handle_youtube_poll():
 
     for message in new_messages:
         author = message["author"]
-        text = message["message"]
+        text = message["message"] or ""
+        author_id = message.get("author_channel_id") or author
+        profile_image_url = message.get("profile_image_url")
         is_superchat = message["sc_details"] is not None
         is_supersticker = message["ss_details"] is not None
 
         text_lower = text.lower()
+        chat_payload = {
+            "author_id": author_id,
+            "display_name": author,
+            "message": text,
+            "profile_image_url": profile_image_url,
+        }
 
         # Check for "tnt" command (add author to regular tnt_queue) - Only English "tnt"
         if "tnt" in text_lower:
-            if author not in tnt_queue:
-                tnt_queue.append(author)
+            if author_id not in [entry["author_id"] for entry in tnt_queue]:
+                tnt_queue.append(chat_payload)
                 print(f"Added {author} to regular TNT queue")
 
         # Check for Superchat/Supersticker (add to superchat tnt queue)
         if is_superchat or is_supersticker:
-            if author not in [entry[0] for entry in tnt_superchat_queue]:
-                 tnt_superchat_queue.append((author, text))
+            if author_id not in [entry["author_id"] for entry in tnt_superchat_queue]:
+                 tnt_superchat_queue.append(chat_payload)
                  print(f"Added {author} to Superchat TNT queue")
 
-        if "fast" in text.lower() and author not in [entry[0] for entry in fast_slow_queue]:
-            fast_slow_queue.append((author, "Fast"))
+        if "fast" in text_lower and author_id not in [entry["author_id"] for entry in fast_slow_queue]:
+            fast_slow_queue.append({"author_id": author_id, "display_name": author, "choice": "Fast"})
             print(f"Added {author} to Fast/Slow queue (Fast)")
-        elif "slow" in text.lower() and author not in [entry[0] for entry in fast_slow_queue]:
-            fast_slow_queue.append((author, "Slow"))
+        elif "slow" in text_lower and author_id not in [entry["author_id"] for entry in fast_slow_queue]:
+            fast_slow_queue.append({"author_id": author_id, "display_name": author, "choice": "Slow"})
             print(f"Added {author} to Fast/Slow queue (Slow)")
 
-        if "big" in text.lower() and author not in big_queue:
-            big_queue.append(author)
+        if "big" in text_lower and author_id not in [entry["author_id"] for entry in big_queue]:
+            big_queue.append({"author_id": author_id, "display_name": author})
             print(f"Added {author} to Big queue")
 
         # Check for pickaxe commands (add author and pickaxe type to pickaxe_queue)
         if "wood" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
-                 pickaxe_queue.append((author, "wooden_pickaxe"))
-                 print(f"Added {author} to Pickaxe queue (wooden_pickaxe)")
+            if author_id not in [entry["author_id"] for entry in pickaxe_queue]:
+                pickaxe_queue.append({"author_id": author_id, "display_name": author, "pickaxe_type": "wooden_pickaxe"})
+                print(f"Added {author} to Pickaxe queue (wooden_pickaxe)")
         elif "stone" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
-                 pickaxe_queue.append((author, "stone_pickaxe"))
-                 print(f"Added {author} to Pickaxe queue (stone_pickaxe)")
+            if author_id not in [entry["author_id"] for entry in pickaxe_queue]:
+                pickaxe_queue.append({"author_id": author_id, "display_name": author, "pickaxe_type": "stone_pickaxe"})
+                print(f"Added {author} to Pickaxe queue (stone_pickaxe)")
         elif "iron" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
-                 pickaxe_queue.append((author, "iron_pickaxe"))
-                 print(f"Added {author} to Pickaxe queue (iron_pickaxe)")
+            if author_id not in [entry["author_id"] for entry in pickaxe_queue]:
+                pickaxe_queue.append({"author_id": author_id, "display_name": author, "pickaxe_type": "iron_pickaxe"})
+                print(f"Added {author} to Pickaxe queue (iron_pickaxe)")
         elif "gold" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
-                 pickaxe_queue.append((author, "golden_pickaxe"))
-                 print(f"Added {author} to Pickaxe queue (golden_pickaxe)")
+            if author_id not in [entry["author_id"] for entry in pickaxe_queue]:
+                pickaxe_queue.append({"author_id": author_id, "display_name": author, "pickaxe_type": "golden_pickaxe"})
+                print(f"Added {author} to Pickaxe queue (golden_pickaxe)")
         elif "diamond" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
-                 pickaxe_queue.append((author, "diamond_pickaxe"))
-                 print(f"Added {author} to Pickaxe queue (diamond_pickaxe)")
+            if author_id not in [entry["author_id"] for entry in pickaxe_queue]:
+                pickaxe_queue.append({"author_id": author_id, "display_name": author, "pickaxe_type": "diamond_pickaxe"})
+                print(f"Added {author} to Pickaxe queue (diamond_pickaxe)")
         elif "netherite" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
-                 pickaxe_queue.append((author, "netherite_pickaxe"))
-                 print(f"Added {author} to Pickaxe queue (netherite_pickaxe)")
+            if author_id not in [entry["author_id"] for entry in pickaxe_queue]:
+                pickaxe_queue.append({"author_id": author_id, "display_name": author, "pickaxe_type": "netherite_pickaxe"})
+                print(f"Added {author} to Pickaxe queue (netherite_pickaxe)")
 
     # print the queue counts (optional, for debugging)
     # print(f"Queues: TNT={len(tnt_queue)}, Superchat TNT={len(tnt_superchat_queue)}, Fast/Slow={len(fast_slow_queue)}, Big={len(big_queue)}, Pickaxe={len(pickaxe_queue)}, MegaTNT={len(mega_tnt_queue)}")
@@ -230,6 +253,7 @@ def game():
 
     # HUD
     hud = Hud(texture_atlas, atlas_items)
+    hud.set_pickaxe_name(pickaxe.display_name())
 
     # Explosions
     explosions = []
@@ -299,8 +323,15 @@ def game():
         current_time = pygame.time.get_ticks()
         if (not config["CHAT_CONTROL"] or (not tnt_queue and not tnt_superchat_queue and not mega_tnt_queue)) and current_time - last_tnt_spawn >= tnt_spawn_interval:
              # Example: spawn TNT at position (400, 300) with a given texture
-             new_tnt = Tnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
-               texture_atlas, atlas_items, sound_manager)
+             new_tnt = Tnt(
+                 space,
+                 pickaxe.body.position.x,
+                 pickaxe.body.position.y - 100,
+                 texture_atlas,
+                 atlas_items,
+                 sound_manager,
+                 leaderboard=hud,
+             )
              tnt_list.append(new_tnt)
              last_tnt_spawn = current_time
              # New random interval for the next TNT spawn
@@ -309,6 +340,7 @@ def game():
         # Check if it's time to change the pickaxe (random)
         if (not config["CHAT_CONTROL"] or not pickaxe_queue) and current_time - last_random_pickaxe >= random_pickaxe_interval:
             pickaxe.random_pickaxe(texture_atlas, atlas_items)
+            hud.set_pickaxe_name(pickaxe.display_name())
             last_random_pickaxe = current_time
             # New random interval for the next pickaxe change
             random_pickaxe_interval = 1000 * random.uniform(config["RANDOM_PICKAXE_INTERVAL_SECONDS_MIN"], config["RANDOM_PICKAXE_INTERVAL_SECONDS_MAX"])
@@ -349,10 +381,23 @@ def game():
 
             # Handle regular TNT from chat command
             if tnt_queue:
-                author = tnt_queue.pop(0)
+                chat_info = tnt_queue.pop(0)
+                author = chat_info["display_name"]
                 print(f"Spawning regular TNT for {author} (from chat command)")
-                new_tnt = Tnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
-                             texture_atlas, atlas_items, sound_manager, owner_name=author)
+                new_tnt = Tnt(
+                    space,
+                    pickaxe.body.position.x,
+                    pickaxe.body.position.y - 100,
+                    texture_atlas,
+                    atlas_items,
+                    sound_manager,
+                    owner_display_name=author,
+                    owner_message=chat_info.get("message"),
+                    profile_image_url=chat_info.get("profile_image_url"),
+                    owner_id=chat_info.get("author_id"),
+                    leaderboard=hud,
+                )
+                hud.mark_command_trigger("tnt")
                 tnt_list.append(new_tnt)
                 last_tnt_spawn = current_time
 
@@ -360,44 +405,86 @@ def game():
             if mega_tnt_queue:
                 author = mega_tnt_queue.pop(0)
                 print(f"Spawning MegaTNT for {author} (New Subscriber)")
-                new_megatnt = MegaTnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
-                      texture_atlas, atlas_items, sound_manager, owner_name=author)
+                new_megatnt = MegaTnt(
+                    space,
+                    pickaxe.body.position.x,
+                    pickaxe.body.position.y - 100,
+                    texture_atlas,
+                    atlas_items,
+                    sound_manager,
+                    owner_name=author,
+                    owner_id=str(author),
+                    leaderboard=hud,
+                )
+                hud.mark_command_trigger("megatnt")
                 tnt_list.append(new_megatnt)
                 last_tnt_spawn = current_time
 
             # Handle Superchat/Supersticker TNT
             if tnt_superchat_queue:
-                author, text = tnt_superchat_queue.pop(0)
+                chat_info = tnt_superchat_queue.pop(0)
+                author = chat_info["display_name"]
+                text = chat_info.get("message")
                 print(f"Spawning TNT for {author} (Superchat: {text})")
                 last_tnt_spawn = current_time
+                hud.mark_command_trigger("tnt")
                 for _ in range(config["TNT_AMOUNT_ON_SUPERCHAT"]):
-                    new_tnt = Tnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100, texture_atlas, atlas_items, sound_manager, owner_name=author)
+                    new_tnt = Tnt(
+                        space,
+                        pickaxe.body.position.x,
+                        pickaxe.body.position.y - 100,
+                        texture_atlas,
+                        atlas_items,
+                        sound_manager,
+                        owner_display_name=author,
+                        owner_message=text,
+                        profile_image_url=chat_info.get("profile_image_url"),
+                        owner_id=chat_info.get("author_id"),
+                        leaderboard=hud,
+                    )
                     tnt_list.append(new_tnt)
 
             # Handle Fast/Slow command
             if fast_slow_queue:
-                author, q_fast_slow = fast_slow_queue.pop(0)
+                fast_slow_entry = fast_slow_queue.pop(0)
+                author = fast_slow_entry["display_name"]
+                q_fast_slow = fast_slow_entry["choice"]
                 print(f"Changing speed for {author} to {q_fast_slow}")
                 fast_slow_active = True
                 last_fast_slow = current_time
                 fast_slow = q_fast_slow
                 fast_slow_interval = 1000 * random.uniform(config["FAST_SLOW_INTERVAL_SECONDS_MIN"], config["FAST_SLOW_INTERVAL_SECONDS_MAX"])
+                hud.mark_command_trigger(q_fast_slow.lower())
 
             # Handle Big pickaxe command
             if big_queue:
-                author = big_queue.pop(0)
+                big_entry = big_queue.pop(0)
+                author = big_entry["display_name"]
                 print(f"Making pickaxe big for {author}")
                 pickaxe.enlarge(enlarge_duration)
                 last_enlarge = current_time + enlarge_duration
                 enlarge_interval = 1000 * random.uniform(config["PICKAXE_ENLARGE_INTERVAL_SECONDS_MIN"], config["PICKAXE_ENLARGE_INTERVAL_SECONDS_MAX"])
+                hud.mark_command_trigger("big")
 
             # Handle Pickaxe type command
             if pickaxe_queue:
-                author, pickaxe_type = pickaxe_queue.pop(0)
+                pickaxe_entry = pickaxe_queue.pop(0)
+                author = pickaxe_entry["display_name"]
+                pickaxe_type = pickaxe_entry["pickaxe_type"]
                 print(f"Changing pickaxe for {author} to {pickaxe_type}")
                 pickaxe.pickaxe(pickaxe_type, texture_atlas, atlas_items)
+                hud.set_pickaxe_name(pickaxe.display_name())
                 last_random_pickaxe = current_time
                 random_pickaxe_interval = 1000 * random.uniform(config["RANDOM_PICKAXE_INTERVAL_SECONDS_MIN"], config["RANDOM_PICKAXE_INTERVAL_SECONDS_MAX"])
+                pickaxe_command_map = {
+                    "wooden_pickaxe": "wood",
+                    "stone_pickaxe": "stone",
+                    "iron_pickaxe": "iron",
+                    "golden_pickaxe": "gold",
+                    "diamond_pickaxe": "diamond",
+                    "netherite_pickaxe": "netherite",
+                }
+                hud.mark_command_trigger(pickaxe_command_map.get(pickaxe_type, pickaxe_type))
 
 
         # Delete chunks
@@ -468,8 +555,15 @@ def game():
         # Handle TNT spawn (key T)
         if keys[pygame.K_t]:
             if not key_t_pressed:  # Only spawn if the key was not pressed in the previous frame
-                new_tnt = Tnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
-                            texture_atlas, atlas_items, sound_manager)
+                new_tnt = Tnt(
+                    space,
+                    pickaxe.body.position.x,
+                    pickaxe.body.position.y - 100,
+                    texture_atlas,
+                    atlas_items,
+                    sound_manager,
+                    leaderboard=hud,
+                )
                 tnt_list.append(new_tnt)
                 last_tnt_spawn = current_time
                 # New random interval for the next TNT spawn
@@ -481,8 +575,15 @@ def game():
         # Handle MegaTNT spawn (key M)
         if keys[pygame.K_m]:
             if not key_m_pressed:  # Only spawn if the key was not pressed in the previous frame
-                new_megatnt = MegaTnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
-                                    texture_atlas, atlas_items, sound_manager)
+                new_megatnt = MegaTnt(
+                    space,
+                    pickaxe.body.position.x,
+                    pickaxe.body.position.y - 100,
+                    texture_atlas,
+                    atlas_items,
+                    sound_manager,
+                    leaderboard=hud,
+                )
                 tnt_list.append(new_megatnt)
                 last_tnt_spawn = current_time
                 # New random interval for the next TNT spawn

@@ -13,7 +13,7 @@ HTML_OVERLAY="$SCRIPT_DIR/obs_scenes/superchat.html"
 MUSIC_DIR="$SCRIPT_DIR/obs_bg_musiques"
 
 ### === CHECK DEPENDENCIES === ###
-REQUIRED=(obs-studio xvfb pulseaudio)
+REQUIRED=(obs xvfb pulseaudio)
 echo "> Checking required packages..."
 for pkg in "${REQUIRED[@]}"; do
   if ! command -v "$pkg" &> /dev/null; then

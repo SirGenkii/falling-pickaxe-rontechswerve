@@ -12,46 +12,49 @@ MUSIC_DIR="./obs_bg_musiques"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-### === INSTALL DEPENDENCIES (Debian/Ubuntu) === ###
-echo "> Checking/installing ffmpeg, xvfb, pulseaudio, sox..."
-sudo apt update && sudo apt install -y ffmpeg xvfb pulseaudio sox
+### === INSTALL DEPENDENCIES === ###
+echo "> Installing dependencies..."
+sudo apt update && sudo apt install -y ffmpeg xvfb pulseaudio sox xdotool
 
+### === LOAD STREAM KEY === ###
 if [ ! -f "$SCRIPT_DIR/$STREAM_KEY_FILE" ]; then
-  echo "❌ Stream key file '$STREAM_KEY_FILE' not found in $SCRIPT_DIR. Please create it with your YouTube stream key."
+  echo "❌ Stream key file '$STREAM_KEY_FILE' not found in $SCRIPT_DIR."
   exit 1
 fi
 STREAM_KEY=$(cat "$SCRIPT_DIR/$STREAM_KEY_FILE")
 
-### === LAUNCH Xvfb IF NOT RUNNING === ###
-if pgrep -f "Xvfb $DISPLAY_ID" > /dev/null; then
-  echo "> Xvfb already running, killing existing instance..."
-  pkill -f "Xvfb $DISPLAY_ID"
-  sleep 1
-fi
-echo "> Starting Xvfb on $DISPLAY_ID..."
+### === LAUNCH VIRTUAL DISPLAY === ###
+pkill -f "Xvfb $DISPLAY_ID" 2>/dev/null
+sleep 1
 Xvfb $DISPLAY_ID -screen 0 ${RESOLUTION}x24 &
 sleep 2
 export DISPLAY=$DISPLAY_ID
 
-### === LAUNCH BACKGROUND MUSIC === ###
+### === START MUSIC === ###
 if [ -d "$SCRIPT_DIR/$MUSIC_DIR" ]; then
-  echo "> Starting background music loop..."
-  find "$SCRIPT_DIR/$MUSIC_DIR" -type f -iname "*.mp3" | shuf | xargs play repeat 999 &
+  echo "> Playing background music..."
+  ( while true; do find "$SCRIPT_DIR/$MUSIC_DIR" -type f -iname '*.mp3' | shuf | xargs play; done ) &
 else
-  echo "⚠️ Music folder '$MUSIC_DIR' not found. Skipping music playback."
+  echo "⚠️  No music folder found."
 fi
 
-### === LAUNCH FALLING PICKAXE === ###
-echo "> Launching Falling Pickaxe..."
+### === START GAME === ###
+echo "> Launching game..."
 cd "$SCRIPT_DIR"
 DISPLAY=$DISPLAY_ID python3 falling_pickaxe.py &
+sleep 5
 
-sleep 5  # Donne au jeu le temps de démarrer
+### === DETECT ACTIVE WINDOW === ###
+WINDOW_ID=$(xdotool search --onlyvisible --limit 1 --class "python3")
+if [ -z "$WINDOW_ID" ]; then
+  echo "❌ No game window found to stream."
+  exit 1
+fi
 
-### === START FFMPEG STREAM === ###
-echo "> Starting stream via FFmpeg..."
+### === START STREAM === ###
+echo "> Starting stream..."
 ffmpeg \
-  -f x11grab -s $RESOLUTION -r $FRAMERATE -i $DISPLAY \
+  -f x11grab -draw_mouse 0 -r $FRAMERATE -s $RESOLUTION -i $DISPLAY \
   -f pulse -i $AUDIO_SOURCE \
   -c:v libx264 -preset veryfast -b:v $BITRATE -maxrate $BITRATE -bufsize 2M \
   -c:a aac -b:a 128k \

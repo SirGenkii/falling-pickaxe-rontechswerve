@@ -8,12 +8,13 @@ BITRATE=4500k
 AUDIO_SOURCE=default
 STREAM_URL="rtmp://a.rtmp.youtube.com/live2"
 STREAM_KEY_FILE=".stream_key"
+MUSIC_DIR="./obs_bg_musiques"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 ### === INSTALL DEPENDENCIES (Debian/Ubuntu) === ###
-echo "> Checking/installing ffmpeg, xvfb, pulseaudio..."
-sudo apt update && sudo apt install -y ffmpeg xvfb pulseaudio
+echo "> Checking/installing ffmpeg, xvfb, pulseaudio, sox..."
+sudo apt update && sudo apt install -y ffmpeg xvfb pulseaudio sox
 
 if [ ! -f "$SCRIPT_DIR/$STREAM_KEY_FILE" ]; then
   echo "❌ Stream key file '$STREAM_KEY_FILE' not found in $SCRIPT_DIR. Please create it with your YouTube stream key."
@@ -31,6 +32,18 @@ else
 fi
 export DISPLAY=$DISPLAY_ID
 
+### === PLAY BACKGROUND MUSIC === ###
+if [ -d "$SCRIPT_DIR/$MUSIC_DIR" ]; then
+  echo "> Playing music from $MUSIC_DIR in loop..."
+  find "$SCRIPT_DIR/$MUSIC_DIR" -type f -name '*.mp3' | sort -R | xargs play -q repeat 999 &
+else
+  echo "⚠️ Music directory '$MUSIC_DIR' not found. Skipping music playback."
+fi
+
+### === WAIT BEFORE STARTING STREAM === ###
+echo "> Waiting for virtual display to be ready..."
+sleep 5
+
 ### === START FFMPEG STREAM === ###
 echo "> Starting stream via FFmpeg..."
 ffmpeg \
@@ -46,6 +59,6 @@ cd "$SCRIPT_DIR"
 DISPLAY=$DISPLAY_ID python3 falling_pickaxe.py
 
 ### === NOTES === ###
-# - This script launches both the stream and the game automatically
-# - Make sure your game window fits the specified resolution
-# - To stop: Ctrl+C or kill ffmpeg and python3 processes
+# - This script launches the stream, music, and the game automatically
+# - Music loops randomly from ./obs_bg_musiques
+# - To stop: Ctrl+C or kill ffmpeg, play, and python3 processes

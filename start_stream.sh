@@ -47,11 +47,10 @@ fi
 
 ### === LAUNCH OBS HEADLESS === ###
 echo "> Launching OBS with stream key..."
-obs \
+flatpak run com.obsproject.Studio \
   --profile "$PROFILE_NAME" \
   --collection "$SCENE_COLLECTION" \
   --startstreaming \
-  --stream "" "$STREAM_URL/$STREAM_KEY" \
   --minimize-to-tray &
 
 ### === FINAL === ###

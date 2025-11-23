@@ -70,7 +70,11 @@ echo "> To stop streaming: pkill obs && pkill Xvfb"
 # 1.1 INSTALL : 
 # sudo apt update
 # sudo apt install -y obs-studio xvfb pulseaudio
-#
+
+# sudo apt install flatpak
+# flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+# flatpak install flathub com.obsproject.Studio
+# 
 # 1.2 Check audio
 # pulseaudio --check || pulseaudio --start
 #

@@ -23,26 +23,30 @@ fi
 STREAM_KEY=$(cat "$SCRIPT_DIR/$STREAM_KEY_FILE")
 
 ### === LAUNCH Xvfb IF NOT RUNNING === ###
-if ! pgrep -f "Xvfb $DISPLAY_ID" > /dev/null; then
-  echo "> Starting Xvfb on $DISPLAY_ID..."
-  Xvfb $DISPLAY_ID -screen 0 ${RESOLUTION}x24 &
-  sleep 2
-else
-  echo "> Xvfb already running on $DISPLAY_ID"
+if pgrep -f "Xvfb $DISPLAY_ID" > /dev/null; then
+  echo "> Xvfb already running, killing existing instance..."
+  pkill -f "Xvfb $DISPLAY_ID"
+  sleep 1
 fi
+echo "> Starting Xvfb on $DISPLAY_ID..."
+Xvfb $DISPLAY_ID -screen 0 ${RESOLUTION}x24 &
+sleep 2
 export DISPLAY=$DISPLAY_ID
 
-### === PLAY BACKGROUND MUSIC === ###
+### === LAUNCH BACKGROUND MUSIC === ###
 if [ -d "$SCRIPT_DIR/$MUSIC_DIR" ]; then
-  echo "> Playing music from $MUSIC_DIR in loop..."
-  find "$SCRIPT_DIR/$MUSIC_DIR" -type f -name '*.mp3' | sort -R | xargs play -q repeat 999 &
+  echo "> Starting background music loop..."
+  find "$SCRIPT_DIR/$MUSIC_DIR" -type f -iname "*.mp3" | shuf | xargs play repeat 999 &
 else
-  echo "⚠️ Music directory '$MUSIC_DIR' not found. Skipping music playback."
+  echo "⚠️ Music folder '$MUSIC_DIR' not found. Skipping music playback."
 fi
 
-### === WAIT BEFORE STARTING STREAM === ###
-echo "> Waiting for virtual display to be ready..."
-sleep 5
+### === LAUNCH FALLING PICKAXE === ###
+echo "> Launching Falling Pickaxe..."
+cd "$SCRIPT_DIR"
+DISPLAY=$DISPLAY_ID python3 falling_pickaxe.py &
+
+sleep 5  # Donne au jeu le temps de démarrer
 
 ### === START FFMPEG STREAM === ###
 echo "> Starting stream via FFmpeg..."
@@ -51,14 +55,4 @@ ffmpeg \
   -f pulse -i $AUDIO_SOURCE \
   -c:v libx264 -preset veryfast -b:v $BITRATE -maxrate $BITRATE -bufsize 2M \
   -c:a aac -b:a 128k \
-  -f flv "$STREAM_URL/$STREAM_KEY" &
-
-### === LAUNCH FALLING PICKAXE === ###
-echo "> Launching Falling Pickaxe..."
-cd "$SCRIPT_DIR"
-DISPLAY=$DISPLAY_ID python3 falling_pickaxe.py
-
-### === NOTES === ###
-# - This script launches the stream, music, and the game automatically
-# - Music loops randomly from ./obs_bg_musiques
-# - To stop: Ctrl+C or kill ffmpeg, play, and python3 processes
+  -f flv "$STREAM_URL/$STREAM_KEY"

@@ -257,7 +257,7 @@ def game():
     camera = Camera()
 
     # HUD
-    hud = Hud(texture_atlas, atlas_items, position=(32,256), legend_offset=200, leaderboard_offset=400)
+    hud = Hud(texture_atlas, atlas_items, position=(32,256), legend_offset=200, leaderboard_offset=550)
     hud.set_pickaxe_name(pickaxe.display_name())
 
     # Explosions

@@ -59,9 +59,18 @@ echo "> Don't forget to paste your STREAM_KEY in the script."
 #    - Add VLC or Media Source pointing to:
 #        $MUSIC_DIR
 #
+# 1.1 INSTALL : 
+# sudo apt update
+# sudo apt install -y obs-studio xvfb pulseaudio
+#
+# 1.2 Check audio
+# pulseaudio --check || pulseaudio --start
+#
 # 2. Then copy your local ~/.config/obs-studio/ to this server.
 #    rsync -av ~/.config/obs-studio/ user@server:/home/youruser/.config/obs-studio/
 #
 # 3. To stop streaming:
 #    pkill obs
 #    pkill Xvfb
+
+

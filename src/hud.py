@@ -28,6 +28,7 @@ class Hud:
         position=(32, 32),
         legend_offset=0,
         leaderboard_offset=0,
+        leaderboard_horizontal_offset=0,
         **kwargs,
     ):
         """
@@ -36,6 +37,7 @@ class Hud:
         :param position: Top-left position where the HUD will be drawn.
         :param legend_offset: Extra vertical offset for the command legend and pickaxe label.
         :param leaderboard_offset: Extra vertical offset for the leaderboard (top-right).
+        :param leaderboard_horizontal_offset: Extra horizontal offset for the leaderboard (positive moves it left).
         :param kwargs: Supports legacy `top_offset` (applied to legend_offset) for backward compatibility.
         """
         self.texture_atlas = texture_atlas
@@ -45,6 +47,7 @@ class Hud:
             legend_offset = kwargs["top_offset"]
         self.legend_offset = legend_offset
         self.leaderboard_offset = leaderboard_offset
+        self.leaderboard_horizontal_offset = leaderboard_horizontal_offset
 
         # Initialize ore amounts to 0.
         self.amounts = {
@@ -239,7 +242,7 @@ class Hud:
             outline_width=2,
         )
 
-        base_x = screen.get_width() - title_surface.get_width() - self.spacing
+        base_x = screen.get_width() - title_surface.get_width() - self.spacing - self.leaderboard_horizontal_offset
         y = self.spacing + self.leaderboard_offset
         screen.blit(title_surface, (base_x, y))
         y += title_surface.get_height() + self.spacing // 2
@@ -257,7 +260,7 @@ class Hud:
                 (0, 0, 0),
                 outline_width=2,
             )
-            line_x = screen.get_width() - line_surface.get_width() - self.spacing
+            line_x = screen.get_width() - line_surface.get_width() - self.spacing - self.leaderboard_horizontal_offset
             screen.blit(line_surface, (line_x, y))
             y += line_surface.get_height() + self.spacing // 3
 

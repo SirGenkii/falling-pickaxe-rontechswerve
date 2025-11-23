@@ -18,7 +18,7 @@ fi
 STREAM_KEY=$(cat "$SCRIPT_DIR/$STREAM_KEY_FILE")
 
 ### === CHECK DEPENDENCIES === ###
-REQUIRED=(obs xvfb pulseaudio)
+REQUIRED=(obs Xvfb pulseaudio)
 echo "> Checking required packages..."
 for pkg in "${REQUIRED[@]}"; do
   if ! command -v "$pkg" &> /dev/null; then

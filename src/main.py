@@ -107,14 +107,17 @@ async def handle_youtube_poll():
             "profile_image_url": profile_image_url,
         }
 
-        # Every chat message spawns at least one TNT with metadata for the overlay
-        tnt_queue.append({**chat_payload, "highlight": "tnt" if "tnt" in text_lower else None})
-        print(f"Queued TNT for chat message from {author}")
+    
 
         # Check for MegaTNT keyword
-        if "megatnt" in text_lower:
+        if "megatnt" in text_lower or "mega" in text_lower:
             mega_tnt_queue.append({**chat_payload, "highlight": "megatnt"})
             print(f"Added {author} to MegaTNT queue (keyword)")
+
+        elif "tnt" in text_lower:
+        # Every chat message spawns at least one TNT with metadata for the overlay
+            tnt_queue.append({**chat_payload, "highlight": "tnt" if "tnt" in text_lower else None})
+            print(f"Queued TNT for chat message from {author}")
 
         # Check for Superchat/Supersticker (add to mega tnt queue for 10x MegaTNT)
         if is_superchat or is_supersticker:
@@ -254,7 +257,7 @@ def game():
     camera = Camera()
 
     # HUD
-    hud = Hud(texture_atlas, atlas_items)
+    hud = Hud(texture_atlas, atlas_items, position=(32,256), legend_offset=200, leaderboard_offset=400)
     hud.set_pickaxe_name(pickaxe.display_name())
 
     # Explosions

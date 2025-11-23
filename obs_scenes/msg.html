@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Overlay texte</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    body {
+      /* Fond gris semi-transparent par dessus le gameplay */
+      background: rgba(180, 180, 180, 0.7);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none; /* pour ne pas bloquer la souris si tu cliques dans l’aperçu OBS */
+      overflow: hidden;
+    }
+
+    .overlay {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3em;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e3a2e9;
+      font-size: 48px; /* ajuste si c’est trop gros/petit */
+      line-height: 55px;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div><u>IN CHAT : </u></div>
+    <div>TNT</div>
+    <div>FAST</div>
+    <div>SLOW</div>
+    <div>BIG</div>
+    <div>WOOD</div>
+    <div>STONE</div>
+    <div>IRON</div>
+    <div>DIAMOND</div>
+  </div>
+</body>
+</html>

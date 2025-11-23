@@ -21,14 +21,30 @@ def render_text_with_outline(text, font, text_color, outline_color, outline_widt
     return outline_surface
 
 class Hud:
-    def __init__(self, texture_atlas, atlas_items, position=(32, 32)):
+    def __init__(
+        self,
+        texture_atlas,
+        atlas_items,
+        position=(32, 32),
+        legend_offset=0,
+        leaderboard_offset=0,
+        **kwargs,
+    ):
         """
         :param texture_atlas: The atlas surface containing the item icons.
         :param atlas_items: A dict with keys under "item" for each ore.
         :param position: Top-left position where the HUD will be drawn.
+        :param legend_offset: Extra vertical offset for the command legend and pickaxe label.
+        :param leaderboard_offset: Extra vertical offset for the leaderboard (top-right).
+        :param kwargs: Supports legacy `top_offset` (applied to legend_offset) for backward compatibility.
         """
         self.texture_atlas = texture_atlas
         self.atlas_items = atlas_items
+        # Backward compatibility for previous single offset
+        if "top_offset" in kwargs:
+            legend_offset = kwargs["top_offset"]
+        self.legend_offset = legend_offset
+        self.leaderboard_offset = leaderboard_offset
 
         # Initialize ore amounts to 0.
         self.amounts = {
@@ -193,7 +209,7 @@ class Hud:
             command_surfaces.append(surface)
 
         y = self.spacing // 2
-
+        y += self.legend_offset
         def draw_row(row_surfaces, y_offset):
             if not row_surfaces:
                 return y_offset
@@ -224,7 +240,7 @@ class Hud:
         )
 
         base_x = screen.get_width() - title_surface.get_width() - self.spacing
-        y = self.spacing
+        y = self.spacing + self.leaderboard_offset
         screen.blit(title_surface, (base_x, y))
         y += title_surface.get_height() + self.spacing // 2
 
@@ -246,4 +262,3 @@ class Hud:
             y += line_surface.get_height() + self.spacing // 3
 
             
-
